@@ -36,6 +36,7 @@ metadata:
     - name: Production Approval
       jobs:
         - production-approval
+        - record-production-approval
     - name: Production
       jobs:
         - deploy-production
@@ -96,29 +97,48 @@ jobs:
             - Audit controls: validated
             - Status: **passed**
 
+  # Governed production gate: a real manual approval, not a mock step.
+  # Approvers default to users with the Approver role. disallowLaunchByUser is
+  # false so the gate can be demoed solo; set it to true to enforce
+  # segregation of duties (the initiator cannot approve their own release).
   production-approval:
     needs:
       - staging-validation
+    with:
+      instructions: "Production release for change ${{ inputs.change_ticket }} (window: ${{ inputs.release_window }}). Review staging validation evidence and approve deployment to prod."
+      disallowLaunchByUser: false
+      approvalInputs: |
+        risk-rating:
+          type: choice
+          options:
+            - low
+            - medium
+            - high
+          default: low
+        rollback-plan-verified:
+          type: boolean
+          default: true
+    timeout-minutes: 60
+    delegates: cloudbees-io/manual-approval/custom-job.yml@v1
+
+  record-production-approval:
+    needs:
+      - production-approval
     steps:
-      - name: Production approval (demo talking point)
-        uses: docker://alpine:3.20
-        shell: sh
-        run: |
-          echo "TALKING POINT: add a manual approval gate here in the CloudBees Unify Workflow Composer."
-          echo "Suggested approvers: Release Manager, Security, Application Owner"
-          echo "Approval: SIMULATED / APPROVED"
       - name: Publish evidence
         uses: https://github.com/cloudbees-io/publish-evidence-item@v1
         with:
           content: |-
-            ## Production approval
-            - Approvers: Release Manager, Security, Application Owner
+            ## Production approval — FinSure Bank
             - Change ticket: ${{ inputs.change_ticket }}
-            - Decision: **approved** (simulated for demo)
+            - Release window: ${{ inputs.release_window }}
+            - Risk rating: ${{ fromJSON(needs.production-approval.outputs.approvalInputValues).risk-rating }}
+            - Rollback plan verified: ${{ fromJSON(needs.production-approval.outputs.approvalInputValues).rollback-plan-verified }}
+            - Decision: **approved**
 
   deploy-production:
     needs:
-      - production-approval
+      - record-production-approval
     environment: prod
     uses: ./.cloudbees/workflows/deployer.yaml
     with:
