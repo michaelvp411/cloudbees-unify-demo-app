@@ -35,6 +35,8 @@ metadata:
         - automated-validation
     - name: Staging
       jobs:
+        - staging-approval
+        - record-approval
         - deploy-staging
     - name: Post-Release
       jobs:
@@ -93,9 +95,42 @@ jobs:
             - Compliance smoke checks: passed
             - Status: **passed**
 
-  deploy-staging:
+  # Governed promotion gate: a real manual approval, not a mock step.
+  # Approvers default to users with the Approver role; the initiator may
+  # approve so the gate can be demoed solo.
+  staging-approval:
     needs:
       - automated-validation
+    with:
+      instructions: "Review QA validation evidence for ${{ inputs.clinical_system }} and approve promotion to staging."
+      disallowLaunchByUser: false
+      approvalInputs: |
+        change-ticket:
+          type: string
+          default: CHG0041872
+        phi-impact-reviewed:
+          type: boolean
+          default: true
+    timeout-minutes: 60
+    delegates: cloudbees-io/manual-approval/custom-job.yml@v1
+
+  record-approval:
+    needs:
+      - staging-approval
+    steps:
+      - name: Publish evidence
+        uses: https://github.com/cloudbees-io/publish-evidence-item@v1
+        with:
+          content: |-
+            ## Staging promotion approval — Horizon Health
+            - Clinical system: ${{ inputs.clinical_system }}
+            - Change ticket: ${{ fromJSON(needs.staging-approval.outputs.approvalInputValues).change-ticket }}
+            - PHI impact reviewed: ${{ fromJSON(needs.staging-approval.outputs.approvalInputValues).phi-impact-reviewed }}
+            - Decision: **approved**
+
+  deploy-staging:
+    needs:
+      - record-approval
     environment: staging
     uses: ./.cloudbees/workflows/deployer.yaml
     with:
@@ -123,6 +158,7 @@ jobs:
             | Golden-path validation | passed |
             | QA deployment | success |
             | Automated validation | passed |
+            | Staging promotion approval | approved |
             | Staging deployment | success |
 
             Standardized release via a reusable platform workflow. Release: **COMPLETE**
