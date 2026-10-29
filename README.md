@@ -12,7 +12,7 @@ It is intentionally **separate from the component repository**, because in Cloud
 ## Workflows
 
 - `.cloudbees/workflows/release-finsure-bank.yaml` — **FinSure Bank**, regulated financial services. Staged: governance → **staging** → validation → production approval → **prod** → evidence.
-- `.cloudbees/workflows/release-horizon-health.yaml` — **Horizon Health Systems**, healthcare / platform engineering. Staged: golden-path → **qa** → validation → **staging** → summary.
+- Horizon Health Systems lives in its own application repo: [`horizon-health-app`](https://github.com/michaelvp411/horizon-health-app).
 - `.cloudbees/workflows/deployer.yaml` — reusable deployer. For each component in the manifest, it calls that component's simulated `deploy.yaml` (cross-repo). The deploy stages in the release workflows call this deployer per environment.
 
 ## Setup required
@@ -21,7 +21,7 @@ Because these are **staged** release workflows (real Release Orchestration), a l
 
 1. Fork this repo **and** the [component repo](https://github.com/cb-demos/cloudbees-unify-demo-kit), and connect both to your Unify org.
 2. Create the **Application** from this repo and add the component to it.
-3. Create the target **environments** (`staging`, `prod` for FinSure; `qa`, `staging` for Horizon) and associate them with the Application.
+3. Create the target **environments** (`staging`, `prod`) and associate them with the Application.
 4. Run a release workflow via **Run workflow** and review the **Evidence** tab per job.
 
 > **Cross-repo reference:** `deployer.yaml` calls `cb-demos/cloudbees-unify-demo-kit/.cloudbees/workflows/deploy.yaml@main`. If you forked to a different org, update that path. All three demo components point at the single component repo's simulated deploy; in a real app each would point at its own component repo.
