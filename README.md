@@ -13,7 +13,14 @@ It is intentionally **separate from the component repository**, because in Cloud
 
 - `.cloudbees/workflows/release-finsure-bank.yaml` — **FinSure Bank**, regulated financial services. Staged: governance → **staging** → validation → production approval → **prod** → evidence.
 - Horizon Health Systems lives in its own application repo: [`horizon-health-app`](https://github.com/michaelvp411/horizon-health-app).
-- `.cloudbees/workflows/deployer.yaml` — reusable deployer. For each component in the manifest, it calls that component's simulated `deploy.yaml` (cross-repo). The deploy stages in the release workflows call this deployer per environment.
+- `.cloudbees/workflows/deployer.yaml` — reusable deployer for a five-service release. Its job graph is the dependency order from `manifests/finsure-release-manifest.yaml`: catalog → orders-api, then orders-api + payments → checkout, with notifications independent. `orders-api` calls the real component's `deploy.yaml` (cross-repo); the other four run `deploy-service.yaml`.
+- `.cloudbees/workflows/deploy-service.yaml` — simulated single-service deploy. It can be told to fail its health check, which records a rollback and holds every service that depends on it.
+
+### Release inputs worth demoing
+
+- `simulate_failure` = `prod`: payments fails in production, rolls back to 2.3.1, checkout is held, and catalog, orders-api and notifications still ship. This answers "14 of 15 services deployed, payments failed. Now what?"
+- `block_on_test_failures` = `true`: governance stops the release on the known orders-api test failure (`test_retry_on_gateway_timeout`).
+- Production approval asks the approver to accept that known failure. If they don't tick `test-failure-risk-accepted`, prod is skipped.
 
 ## Setup required
 

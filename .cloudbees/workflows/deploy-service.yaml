@@ -1,0 +1,79 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: deploy-service
+
+# Simulated deploy of one release service, called by deployer.yaml for the
+# services that have no component repo in this demo. Mock/echo only.
+#
+# When fail-in equals the target environment, the deploy "fails its health
+# check", records an automatic rollback to rollback-version, and fails the job
+# so every service that depends on it is skipped by the deployer.
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      environment:
+        type: string
+        required: true
+      fail-in:
+        type: string
+        default: none
+      rollback-version:
+        type: string
+        default: previous
+
+jobs:
+  deploy:
+    steps:
+      - name: Simulate deployment
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "== Simulated deployment =="
+          echo "Service:     ${{ inputs.service }}"
+          echo "Version:     ${{ inputs.version }}"
+          echo "Environment: ${{ inputs.environment }}"
+          if [ "${{ inputs.fail-in }}" = "${{ inputs.environment }}" ]; then
+            echo "Post-deploy health check: FAILED (payment gateway timeouts, retries exhausted 2/3)"
+            echo "Automatic rollback to ${{ inputs.rollback-version }}: COMPLETE (simulated)"
+          else
+            echo "Post-deploy health check: PASSED"
+            echo "Deploy status: SUCCESS (simulated)"
+          fi
+      - name: Publish evidence
+        if: ${{ inputs.fail-in != inputs.environment }}
+        uses: https://github.com/cloudbees-io/publish-evidence-item@v1
+        with:
+          content: |-
+            ## Deployment (simulated) — ${{ inputs.service }}
+            - Version: ${{ inputs.version }}
+            - Environment: ${{ inputs.environment }}
+            - Health check: passed
+            - Status: **success**
+      - name: Publish failure evidence
+        if: ${{ inputs.fail-in == inputs.environment }}
+        uses: https://github.com/cloudbees-io/publish-evidence-item@v1
+        with:
+          content: |-
+            ## Deployment FAILED (simulated) — ${{ inputs.service }}
+            - Version: ${{ inputs.version }}
+            - Environment: ${{ inputs.environment }}
+            - Health check: **failed** (payment gateway timeouts, retries exhausted 2/3)
+            - Matches the known CI failure `test_retry_on_gateway_timeout` accepted at governance
+            - Automatic rollback: **${{ inputs.rollback-version }}** restored
+            - Dependent services: **held** (not deployed)
+            - Independent services: unaffected
+            - Next step: roll forward with the retry fix, or keep the release on the rolled-back version
+      - name: Fail deployment
+        if: ${{ inputs.fail-in == inputs.environment }}
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "${{ inputs.service }} failed in ${{ inputs.environment }}; failing job so dependents are held"
+          exit 1

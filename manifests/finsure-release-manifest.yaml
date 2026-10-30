@@ -1,12 +1,41 @@
+# Release manifest: what ships, at which version, and in what order.
+# dependsOn is a business dependency (checkout can't take orders without
+# catalog-backed orders and payments). The deployer's job graph mirrors it:
+# keep .cloudbees/workflows/deployer.yaml in sync when this changes.
 release:
-  name: FinSure Bank Mobile Banking Release
+  name: FinSure Bank Mobile Banking Release 2026.11
   changeTicket: CHG-10482
   releaseWindow: Saturday 22:00-23:00 ET
   riskLevel: medium
 components:
-  orders-api:
-    version: orders-api:1.4.0
+  catalog-service:
+    version: 3.8.0
     deploy: true
+    dependsOn: []
+  payments-service:
+    version: 2.4.0
+    rollbackVersion: 2.3.1
+    deploy: true
+    dependsOn: []
+  notifications-service:
+    version: 1.9.2
+    deploy: true
+    dependsOn: []
+  orders-api:
+    version: 1.4.9
+    deploy: true
+    dependsOn:
+      - catalog-service
+  checkout-service:
+    version: 5.1.0
+    deploy: true
+    dependsOn:
+      - orders-api
+      - payments-service
+onFailure:
+  # A failed service rolls back to rollbackVersion; its dependents are held;
+  # independent services keep the new version.
+  strategy: rollback-failed-hold-dependents
 requiredEvidence:
   - unit-tests
   - security-scan

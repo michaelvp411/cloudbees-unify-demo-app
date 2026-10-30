@@ -4,8 +4,9 @@ name: finsure-bank-regulated-release
 
 # Regulated release orchestration for FinSure Bank — a STAGED workflow.
 # Deploy stages map to environments and call the reusable deployer, which
-# simulates deploying each component. Governance/validation/approval/evidence
-# jobs run mock steps and publish evidence to the run's Evidence tab.
+# deploys the five release services in dependency order (see deployer.yaml).
+# Governance/validation/approval/evidence jobs run mock steps and publish
+# evidence to the run's Evidence tab.
 #
 # Setup in CloudBees Unify: the target environments (staging, prod) must exist
 # and be associated with the application, and the component must be part of the
@@ -23,6 +24,18 @@ on:
       release_window:
         type: string
         default: Saturday 22:00-23:00 ET
+      simulate_failure:
+        type: choice
+        description: Make payments-service fail its health check in this environment
+        options:
+          - none
+          - staging
+          - prod
+        default: none
+      block_on_test_failures:
+        type: boolean
+        description: Enforce the test policy (fail governance) instead of requiring risk acceptance
+        default: false
 
 metadata:
   stages/v1alpha1:
@@ -54,8 +67,10 @@ jobs:
           echo "== FinSure Bank governance review =="
           echo "Change ticket:  ${{ inputs.change_ticket }}"
           echo "Release window: ${{ inputs.release_window }}"
-          echo "Verifying unit tests, security scans, and approvals..."
-          echo "Audit evidence: COMPLETE"
+          echo "orders-api CI:  14/16 tests passed, 1 failed, 1 skipped"
+          echo "  FAILED: test_retry_on_gateway_timeout (payments gateway retry)"
+          echo "Security:       1 open finding (hardcoded credential, src/config.py)"
+          echo "Block on test failures: ${{ inputs.block_on_test_failures }}"
       - name: Publish evidence
         uses: https://github.com/cloudbees-io/publish-evidence-item@v1
         with:
@@ -63,8 +78,17 @@ jobs:
             ## Governance review — FinSure Bank
             - Change ticket: ${{ inputs.change_ticket }}
             - Release window: ${{ inputs.release_window }}
-            - Unit tests / security scans / approvals: verified
-            - Audit evidence: **complete**
+            - orders-api unit tests: 14/16 passed, **1 failed** (`test_retry_on_gateway_timeout`, payments gateway retry), 1 skipped
+            - Security: **1 open finding** (hardcoded credential in `src/config.py`), tracked in the Security tab
+            - Block on test failures: ${{ inputs.block_on_test_failures }}
+            - Outcome: release blocked if enforcing; otherwise risk acceptance required at Production Approval
+      - name: Enforce test policy
+        if: ${{ inputs.block_on_test_failures }}
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          echo "Test policy enforced: 1 failing test in orders-api. Release blocked."
+          exit 1
 
   deploy-staging:
     needs:
@@ -74,6 +98,7 @@ jobs:
     with:
       manifest: ${{ inputs.manifest }}
       environment: ${{ job.environment }}
+      simulate-failure: ${{ inputs.simulate_failure }}
 
   staging-validation:
     needs:
@@ -105,7 +130,7 @@ jobs:
     needs:
       - staging-validation
     with:
-      instructions: "Production release for change ${{ inputs.change_ticket }} (window: ${{ inputs.release_window }}). Review staging validation evidence and approve deployment to prod."
+      instructions: "Production release for change ${{ inputs.change_ticket }} (window: ${{ inputs.release_window }}). Review staging validation evidence. Known risk: orders-api test_retry_on_gateway_timeout is failing (payments gateway retry). Accept the risk to deploy to prod."
       disallowLaunchByUser: false
       approvalInputs: |
         risk-rating:
@@ -118,6 +143,9 @@ jobs:
         rollback-plan-verified:
           type: boolean
           default: true
+        test-failure-risk-accepted:
+          type: boolean
+          default: false
     timeout-minutes: 60
     delegates: cloudbees-io/manual-approval/custom-job.yml@v1
 
@@ -134,16 +162,21 @@ jobs:
             - Release window: ${{ inputs.release_window }}
             - Risk rating: ${{ fromJSON(needs.production-approval.outputs.approvalInputValues).risk-rating }}
             - Rollback plan verified: ${{ fromJSON(needs.production-approval.outputs.approvalInputValues).rollback-plan-verified }}
+            - Known test failure risk accepted: ${{ fromJSON(needs.production-approval.outputs.approvalInputValues).test-failure-risk-accepted }}
             - Decision: **approved**
 
+  # Production only deploys if the approver accepted the known test failure.
   deploy-production:
     needs:
+      - production-approval
       - record-production-approval
+    if: ${{ fromJSON(needs.production-approval.outputs.approvalInputValues).test-failure-risk-accepted }}
     environment: prod
     uses: ./.cloudbees/workflows/deployer.yaml
     with:
       manifest: ${{ inputs.manifest }}
       environment: ${{ job.environment }}
+      simulate-failure: ${{ inputs.simulate_failure }}
 
   release-evidence:
     needs:
@@ -163,8 +196,9 @@ jobs:
             ## Release evidence package — FinSure Bank
             | Control | Status |
             | --- | --- |
-            | Unit tests | passed |
-            | Security scan | passed |
+            | Services deployed | catalog, payments, notifications, orders-api, checkout |
+            | Unit tests | 14/16 passed, 1 known failure (risk accepted at approval) |
+            | Security scan | 1 open finding, tracked in Security tab |
             | Change approval | complete |
             | Staging validation | passed |
             | Production approval | approved |

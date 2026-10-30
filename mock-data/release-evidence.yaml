@@ -2,9 +2,9 @@ evidence:
   release: customer-portal-2026.07.01
   components:
     - name: orders-api
-      version: 1.4.0
-      ciStatus: passed
-      securityStatus: passed
+      version: 1.4.9
+      ciStatus: passed-with-known-failure  # test_retry_on_gateway_timeout, risk accepted
+      securityStatus: open-finding  # hardcoded credential, src/config.py
       deployedTo:
         - staging
         - prod
