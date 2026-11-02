@@ -68,6 +68,7 @@ jobs:
     uses: michaelvp411/cloudbees-unify-demo-kit/.cloudbees/workflows/deploy.yaml@main
     with:
       artifact-id: ${{ fromJSON(inputs.manifest)['cloudbees-unify-demo-kit']['orders-api'].url }}
+      artifact-uuid: ${{ fromJSON(inputs.manifest)['cloudbees-unify-demo-kit']['orders-api'].id }}
       environment: ${{ inputs.environment }}
 
   checkout-service:

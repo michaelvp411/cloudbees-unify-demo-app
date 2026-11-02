@@ -17,7 +17,7 @@ on:
     inputs:
       manifest:
         type: string
-        default: '{"cloudbees-unify-demo-kit":{"deploy":true,"orders-api":{"deploy":true,"name":"orders-api","version":"1.4.9","url":"docker.io/cloudbeesdemo/orders-api:1.4.9"}}}'
+        default: '{"cloudbees-unify-demo-kit":{"deploy":true,"orders-api":{"deploy":true,"name":"orders-api","version":"1.4.9","url":"docker.io/cloudbeesdemo/orders-api:1.4.9","id":""}}}'
       change_ticket:
         type: string
         default: CHG-10482
