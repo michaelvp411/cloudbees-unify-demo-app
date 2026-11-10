@@ -1,8 +1,8 @@
 evidence:
-  release: customer-portal-2026.07.01
+  release: finsure-mobile-banking-2026.11
   components:
     - name: orders-api
-      version: 1.4.9
+      version: 1.4.21
       ciStatus: passed-with-known-failure  # test_retry_on_gateway_timeout, risk accepted
       securityStatus: open-finding  # hardcoded credential, src/config.py
       deployedTo:

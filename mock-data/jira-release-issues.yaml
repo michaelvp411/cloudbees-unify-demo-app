@@ -1,13 +1,13 @@
 jira:
-  project: CP
+  project: FIN
   issues:
-    - key: CP-1842
+    - key: FIN-1042
       type: Story
-      summary: Add order status API endpoint
+      summary: Add order status API for mobile banking
       status: Done
       component: orders-api
-    - key: CP-1851
+    - key: FIN-1051
       type: Bug
-      summary: Fix retry logic for order status lookup
+      summary: Fix payment gateway retry on timeout
       status: Done
       component: orders-api

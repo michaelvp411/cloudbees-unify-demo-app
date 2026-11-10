@@ -1,11 +1,13 @@
+# Mirrors what CloudBees Unify's own scanners report in the component's
+# Security tab; the live numbers there are the source of truth.
 security:
-  tool: mock-sca-sast
+  tools:
+    - Checkov (infrastructure as code)
+    - Gitleaks (secrets)
   component: orders-api
-  commit: abc1234
   results:
     critical: 0
-    high: 0
-    medium: 3
-    low: 12
-  policyStatus: passed
-  notes: Medium and low findings accepted under current policy for demo purposes.
+    high: 20  # Checkov: k8s/deployment.yaml hardening and the GitHub Actions workflow
+    medium: 0
+    low: 0
+  policyStatus: open-findings-tracked
