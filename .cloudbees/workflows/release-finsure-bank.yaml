@@ -24,18 +24,23 @@ on:
       release_window:
         type: string
         default: Saturday 22:00-23:00 ET
+      # Make payments-service fail its health check in this environment.
       simulate_failure:
         type: choice
-        description: Make payments-service fail its health check in this environment
         options:
           - none
           - staging
           - prod
         default: none
+      # "true": enforce the test policy (fail governance) instead of requiring
+      # risk acceptance. A choice, not a boolean: Unify releases reject
+      # workflows with boolean or described inputs.
       block_on_test_failures:
-        type: boolean
-        description: Enforce the test policy (fail governance) instead of requiring risk acceptance
-        default: false
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
 
 metadata:
   stages/v1alpha1:
@@ -83,7 +88,7 @@ jobs:
             - Block on test failures: ${{ inputs.block_on_test_failures }}
             - Outcome: release blocked if enforcing; otherwise risk acceptance required at Production Approval
       - name: Enforce test policy
-        if: ${{ inputs.block_on_test_failures }}
+        if: ${{ inputs.block_on_test_failures == 'true' }}
         uses: docker://alpine:3.20
         shell: sh
         run: |
