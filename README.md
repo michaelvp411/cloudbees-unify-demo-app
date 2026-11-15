@@ -12,7 +12,6 @@ It is intentionally **separate from the component repository**, because in Cloud
 ## Workflows
 
 - `.cloudbees/workflows/release-finsure-bank.yaml` — **FinSure Bank**, regulated financial services. Staged: governance → **staging** → validation → production approval → **prod** → evidence.
-- Horizon Health Systems lives in its own application repo: [`horizon-health-app`](https://github.com/michaelvp411/horizon-health-app).
 - `.cloudbees/workflows/deployer.yaml` — reusable deployer for a five-service release. Its job graph is the dependency order from `manifests/finsure-release-manifest.yaml`: catalog → orders-api, then orders-api + payments → checkout, with notifications independent. `orders-api` calls the real component's `deploy.yaml` (cross-repo); the other four run `deploy-service.yaml`.
 - `.cloudbees/workflows/deploy-service.yaml` — simulated single-service deploy. It can be told to fail its health check, which records a rollback and holds every service that depends on it.
 
